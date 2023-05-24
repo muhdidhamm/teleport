@@ -29,6 +29,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/gravitational/teleport/api/constants"
+	"github.com/gravitational/teleport/api/defaults"
 	"github.com/gravitational/teleport/api/utils/keys"
 	"github.com/gravitational/teleport/api/utils/tlsutils"
 )
@@ -126,6 +127,11 @@ type AuthPreference interface {
 	IsSAMLIdPEnabled() bool
 	// SetSAMLIdPEnabled sets the SAML IdP to enabled.
 	SetSAMLIdPEnabled(bool)
+
+	// GetMaxSessionTTL retrieves the max session ttl
+	GetMaxSessionTTL() Duration
+	// SetMaxSessionTTL sets the max session ttl
+	SetMaxSessionTTL(Duration)
 
 	// String represents a human readable version of authentication settings.
 	String() string
@@ -435,6 +441,16 @@ func (c *AuthPreferenceV2) SetSAMLIdPEnabled(enabled bool) {
 	c.Spec.IDP.SAML.Enabled = NewBoolOption(enabled)
 }
 
+// SetMaxSessionTTL sets the max session ttl
+func (c *AuthPreferenceV2) SetMaxSessionTTL(maxSessionTTl Duration) {
+	c.Spec.MaxSessionTTL = maxSessionTTl
+}
+
+// GetMaxSessionTTL retrieves the max session ttl
+func (c *AuthPreferenceV2) GetMaxSessionTTL() Duration {
+	return c.Spec.MaxSessionTTL
+}
+
 // setStaticFields sets static resource header and metadata fields.
 func (c *AuthPreferenceV2) setStaticFields() {
 	c.Kind = KindClusterAuthPreference
@@ -466,6 +482,10 @@ func (c *AuthPreferenceV2) CheckAndSetDefaults() error {
 	}
 	if c.Origin() == "" {
 		c.SetOrigin(OriginDynamic)
+	}
+
+	if c.Spec.MaxSessionTTL == 0 {
+		c.Spec.MaxSessionTTL = Duration(defaults.CertDuration)
 	}
 
 	switch c.Spec.Type {

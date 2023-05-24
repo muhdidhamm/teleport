@@ -41,6 +41,7 @@ import (
 	"github.com/gravitational/teleport/api/defaults"
 	"github.com/gravitational/teleport/api/observability/tracing"
 	tracehttp "github.com/gravitational/teleport/api/observability/tracing/http"
+	"github.com/gravitational/teleport/api/types"
 	"github.com/gravitational/teleport/api/utils"
 	"github.com/gravitational/teleport/api/utils/keys"
 )
@@ -409,6 +410,8 @@ type AuthenticationSettings struct {
 	HasMessageOfTheDay bool `json:"has_motd"`
 	// LoadAllCAs tells tsh to load CAs for all clusters when trying to ssh into a node.
 	LoadAllCAs bool `json:"load_all_cas,omitempty"`
+	// MaxSessionTTL is the cluster wide max session ttl default
+	MaxSessionTTL types.Duration `json:"max_session_ttl"`
 }
 
 // LocalSettings holds settings for local authentication.

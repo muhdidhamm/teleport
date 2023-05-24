@@ -3268,8 +3268,10 @@ func makeClientForProxy(cf *CLIConf, proxy string) (*client.TeleportClient, erro
 	}
 
 	// apply defaults
+	cliTTL := true
 	if cf.MinsToLive == 0 {
 		cf.MinsToLive = int32(apidefaults.CertDuration / time.Minute)
+		cliTTL = false
 	}
 
 	// split login & host
@@ -3457,6 +3459,7 @@ func makeClientForProxy(cf *CLIConf, proxy string) (*client.TeleportClient, erro
 		c.HostLogin = hostLogin
 	}
 	c.Labels = labels
+	c.CliTTL = cliTTL
 	c.KeyTTL = time.Minute * time.Duration(cf.MinsToLive)
 	c.InsecureSkipVerify = cf.InsecureSkipVerify
 	c.PredicateExpression = cf.PredicateExpression

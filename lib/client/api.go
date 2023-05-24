@@ -231,6 +231,9 @@ type Config struct {
 
 	// KeyTTL is a time to live for the temporary SSH keypair to remain valid:
 	KeyTTL time.Duration
+	// CliTTL is used to ensure the TTL passed by flag is used over
+	// the cluster default
+	CliTTL bool
 
 	// InsecureSkipVerify is an option to skip HTTPS cert check
 	InsecureSkipVerify bool
@@ -3298,6 +3301,11 @@ func (tc *TeleportClient) Login(ctx context.Context) (*Key, error) {
 
 	// Perform the ALPN test once at login.
 	tc.TLSRoutingConnUpgradeRequired = client.IsALPNConnUpgradeRequired(tc.WebProxyAddr, tc.InsecureSkipVerify)
+
+	authMaxSessTTL := time.Duration(pr.Auth.MaxSessionTTL)
+	if !tc.CliTTL {
+		tc.KeyTTL = authMaxSessTTL
+	}
 
 	// Get the SSHLoginFunc that matches client and cluster settings.
 	sshLoginFunc, err := tc.getSSHLoginFunc(pr)
