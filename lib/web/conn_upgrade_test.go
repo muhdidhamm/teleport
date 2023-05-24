@@ -129,7 +129,8 @@ func sendConnUpgradeRequest(t *testing.T, h *Handler, upgradeType string, server
 
 	// serverConn will be hijacked.
 	w := newResponseWriterHijacker(nil, serverConn)
-	w, r = h.maybeUpdateClientSrcAddr(w, r)
+	w, r, err = h.maybeUpdateClientSrcAddr(w, r)
+	require.NoError(t, err)
 
 	go func() {
 		_, err := h.connectionUpgrade(w, r, nil)

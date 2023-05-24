@@ -40,24 +40,29 @@ const (
 //
 // Both hijacked conn and request context are updated. The hijacked conn can be
 // used for ALPN connection upgrades or Websocket connections.
-func (h *Handler) maybeUpdateClientSrcAddr(w http.ResponseWriter, r *http.Request) (http.ResponseWriter, *http.Request) {
+func (h *Handler) maybeUpdateClientSrcAddr(w http.ResponseWriter, r *http.Request) (http.ResponseWriter, *http.Request, error) {
 	if !h.cfg.UseXFFHeader {
-		return w, r
-	}
-	// Use X-Forwarded-for if set.
-	xForwardedFor := r.Header.Get(xForwardedForHeader)
-	if xForwardedFor == "" {
-		return w, r
+		return w, r, nil
 	}
 
-	forwardedAddr, err := getForwardedAddr(r.RemoteAddr, xForwardedFor)
+	// Use X-Forwarded-For if set.
+	xForwardedForValues := r.Header.Values(xForwardedForHeader)
+	switch len(xForwardedForValues) {
+	case 0:
+		return w, r, nil
+	case 1:
+		break
+	default:
+		return nil, nil, trace.BadParameter("expect a single X-Forwarded-For value but got %v", len(xForwardedForValues))
+	}
+
+	forwardedAddr, err := getForwardedAddr(r.RemoteAddr, xForwardedForValues[0])
 	if err != nil {
-		logrus.Debugf("Invalid X-Forwarded-For %q: %v.", xForwardedFor, err)
-		return w, r
+		return nil, nil, trace.Wrap(err)
 	}
 
 	return responseWriterWithClientSrcAddr(w, forwardedAddr),
-		requestWithClientSrcAddr(r, forwardedAddr)
+		requestWithClientSrcAddr(r, forwardedAddr), nil
 }
 
 // getForwardedAddr returns a net.Addr from provided value of X-Forwarded-For.
@@ -68,8 +73,9 @@ func (h *Handler) maybeUpdateClientSrcAddr(w http.ResponseWriter, r *http.Reques
 // AWS ALB reference:
 // https://docs.aws.amazon.com/elasticloadbalancing/latest/application/x-forwarded-headers.html
 func getForwardedAddr(observeredAddr, forwardedAddr string) (net.Addr, error) {
-	// In case multiple IPs are appended to X-Forwarded-For, use the first one.
-	forwardedAddr, _, _ = strings.Cut(forwardedAddr, ",")
+	// Take the last IP.
+	tokens := strings.Split(forwardedAddr, ",")
+	forwardedAddr = strings.TrimSpace(tokens[len(tokens)-1])
 
 	// If forwardedAddr has a port.
 	if ipAddrPort, err := netip.ParseAddrPort(forwardedAddr); err == nil {

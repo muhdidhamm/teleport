@@ -279,7 +279,11 @@ type ConnectionHandler func(ctx context.Context, conn net.Conn) error
 // Check if this request should be forwarded to an application handler to
 // be handled by the UI and handle the request appropriately.
 func (h *APIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w, r = h.handler.maybeUpdateClientSrcAddr(w, r)
+	w, r, err := h.handler.maybeUpdateClientSrcAddr(w, r)
+	if err != nil {
+		trace.WriteError(w, err)
+		return
+	}
 
 	// If the request is either to the fragment authentication endpoint or if the
 	// request has a session cookie or a client cert, forward to
@@ -768,7 +772,7 @@ func (h *Handler) bindDefaultEndpoints() {
 	h.GET("/webapi/thumbprint", h.WithLimiter(h.thumbprint))
 
 	// Connection upgrades.
-	h.GET("/webapi/connectionupgrade", h.WithLimiter(h.connectionUpgrade))
+	h.GET("/webapi/connectionupgrade", h.WithHighLimiter(h.connectionUpgrade))
 
 	// create user events.
 	h.POST("/webapi/precapture", h.WithUnauthenticatedLimiter(h.createPreUserEventHandle))
