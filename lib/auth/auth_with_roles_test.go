@@ -205,6 +205,10 @@ func TestLocalUserCanReissueCerts(t *testing.T) {
 			ctx := context.Background()
 			user, role, err := CreateUserAndRole(srv.Auth(), test.desc, []string{"role"}, nil)
 			require.NoError(t, err)
+			authPref, err := srv.Auth().GetAuthPreference(ctx)
+			require.NoError(t, err)
+			authPref.SetMaxSessionTTL(types.Duration(test.expiresIn))
+			srv.Auth().SetAuthPreference(ctx, authPref)
 
 			var id TestIdentity
 			if test.renewable {
