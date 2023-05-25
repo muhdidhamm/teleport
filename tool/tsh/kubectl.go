@@ -285,7 +285,6 @@ func createKubeAccessRequest(cf *CLIConf, resources []resourceKind, args []strin
 		)
 	}
 
-
 	clusterClient, err := tc.ConnectToCluster(cf.Context)
 	if err != nil {
 		return trace.Wrap(err)

@@ -3618,7 +3618,7 @@ func (tc *TeleportClient) SSHLogin(ctx context.Context, sshLoginFunc SSHLoginFun
 
 // GetNewLoginKey gets a new private key for login.
 func (tc *TeleportClient) GetNewLoginKey(ctx context.Context) (priv *keys.PrivateKey, err error) {
-	ctx, span := tc.Tracer.Start(
+	_, span := tc.Tracer.Start(
 		ctx,
 		"teleportClient/GetNewLoginKey",
 		oteltrace.WithSpanKind(oteltrace.SpanKindClient),
@@ -3875,7 +3875,7 @@ func (tc *TeleportClient) ActivateKey(ctx context.Context, key *Key, getter serv
 // ActivateKey saves the target session cert into the local
 // keystore (and into the ssh-agent) for future use.
 func (tc *TeleportClient) ActivateKeyWithoutTrustedCerts(ctx context.Context, key *Key) error {
-	ctx, span := tc.Tracer.Start(
+	_, span := tc.Tracer.Start(
 		ctx,
 		"teleportClient/ActivateKey",
 		oteltrace.WithSpanKind(oteltrace.SpanKindClient),

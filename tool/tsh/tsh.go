@@ -1887,8 +1887,13 @@ func onLogin(cf *CLIConf) error {
 	webProxyHost, _ := tc.WebProxyHostPort()
 	cf.Proxy = webProxyHost
 
+	profile, profiles, err = cf.FullProfileStatus()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
 	// Print status to show information of the logged in user.
-	if err := onStatus(cf); err != nil {
+	if err := outputProfiles(cf, profile, profiles); err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -3934,6 +3939,27 @@ func printStatus(debug bool, p *profileInfo, env map[string]string, isActive boo
 	fmt.Printf("\n")
 }
 
+// outputProfiles displays the provided profile information
+// to the user.
+func outputProfiles(cf *CLIConf, profile *client.ProfileStatus, profiles []*client.ProfileStatus) error {
+	env := getTshEnv()
+	active, others := makeAllProfileInfo(profile, profiles, env)
+
+	format := strings.ToLower(cf.Format)
+	switch format {
+	case teleport.JSON, teleport.YAML:
+		out, err := serializeProfiles(active, others, env, format)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		fmt.Println(out)
+	default:
+		printProfiles(cf.Debug, active, others, env, cf.Verbose)
+	}
+
+	return nil
+}
+
 // onStatus command shows which proxy the user is logged into and metadata
 // about the certificate.
 func onStatus(cf *CLIConf) error {
@@ -3949,19 +3975,8 @@ func onStatus(cf *CLIConf) error {
 		return trace.Wrap(err)
 	}
 
-	env := getTshEnv()
-	active, others := makeAllProfileInfo(profile, profiles, env)
-
-	format := strings.ToLower(cf.Format)
-	switch format {
-	case teleport.JSON, teleport.YAML:
-		out, err := serializeProfiles(active, others, env, format)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		fmt.Println(out)
-	default:
-		printProfiles(cf.Debug, active, others, env, cf.Verbose)
+	if err := outputProfiles(cf, profile, profiles); err != nil {
+		return trace.Wrap(err)
 	}
 
 	if profile == nil {
