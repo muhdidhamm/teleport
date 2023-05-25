@@ -802,6 +802,9 @@ type HostUsersInfo struct {
 	Groups []string
 	// Sudoers is a list of entries for a users sudoers file
 	Sudoers []string
+	// Mode determines if a host user should be deleted after a session
+	// ends or not.
+	Mode constants.HostUserMode
 }
 
 // RoleFromSpec returns new Role created from spec
@@ -2932,6 +2935,7 @@ func (set RoleSet) DesktopGroups(s types.WindowsDesktop) ([]string, error) {
 func (set RoleSet) HostUsers(s types.Server) (*HostUsersInfo, error) {
 	groups := make(map[string]struct{})
 	var sudoers []string
+	var mode constants.HostUserMode
 	serverLabels := s.GetAllLabels()
 
 	roleSet := make([]types.Role, len(set))
@@ -2950,12 +2954,29 @@ func (set RoleSet) HostUsers(s types.Server) (*HostUsersInfo, error) {
 		if !result {
 			continue
 		}
+		createHostUserMode := role.GetOptions().CreateHostUserMode
 		createHostUser := role.GetOptions().CreateHostUser
+		if createHostUserMode == "" {
+			createHostUserMode = constants.HostUserModeOff
+			if createHostUser != nil && createHostUser.Value {
+				createHostUserMode = constants.HostUserModeDrop
+			}
+		}
+
 		// if any of the matching roles do not enable create host
 		// user, the user should not be allowed on
-		if createHostUser == nil || !createHostUser.Value {
+		if createHostUserMode == constants.HostUserModeOff {
 			return nil, trace.AccessDenied("user is not allowed to create host users")
 		}
+
+		if mode == "" {
+			mode = createHostUserMode
+		}
+		// prefer the more restrictive HostUserModeDrop if mode has already been set.
+		if mode == constants.HostUserModeRemain && createHostUserMode == constants.HostUserModeDrop {
+			mode = createHostUserMode
+		}
+
 		for _, group := range role.GetHostGroups(types.Allow) {
 			groups[group] = struct{}{}
 		}
@@ -2999,6 +3020,7 @@ func (set RoleSet) HostUsers(s types.Server) (*HostUsersInfo, error) {
 	return &HostUsersInfo{
 		Groups:  utils.StringsSliceFromSet(groups),
 		Sudoers: sudoers,
+		Mode:    mode,
 	}, nil
 }
 
