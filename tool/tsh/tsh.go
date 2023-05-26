@@ -1672,11 +1672,8 @@ func onLogin(cf *CLIConf) error {
 			if err := updateKubeConfigOnLogin(cf, tc, updateKubeConfigOption); err != nil {
 				return trace.Wrap(err)
 			}
-			env := getTshEnv()
-			active, others := makeAllProfileInfo(profile, profiles, env)
-			printProfiles(cf.Debug, active, others, env, cf.Verbose)
 
-			return nil
+			return trace.Wrap(printProfiles(cf, profile, profiles))
 
 		// if the proxy names match but nothing else is specified; show motd and update active profile and kube configs
 		case host(cf.Proxy) == host(profile.ProxyURL.Host) &&
@@ -1886,7 +1883,7 @@ func onLogin(cf *CLIConf) error {
 	}
 
 	// Print status to show information of the logged in user.
-	if err := outputProfiles(cf, profile, profiles); err != nil {
+	if err := printProfiles(cf, profile, profiles); err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -3928,9 +3925,9 @@ func printStatus(debug bool, p *profileInfo, env map[string]string, isActive boo
 	fmt.Printf("\n")
 }
 
-// outputProfiles displays the provided profile information
+// printProfiles displays the provided profile information
 // to the user.
-func outputProfiles(cf *CLIConf, profile *client.ProfileStatus, profiles []*client.ProfileStatus) error {
+func printProfiles(cf *CLIConf, profile *client.ProfileStatus, profiles []*client.ProfileStatus) error {
 	env := getTshEnv()
 	active, others := makeAllProfileInfo(profile, profiles, env)
 
@@ -3943,7 +3940,29 @@ func outputProfiles(cf *CLIConf, profile *client.ProfileStatus, profiles []*clie
 		}
 		fmt.Println(out)
 	default:
-		printProfiles(cf.Debug, active, others, env, cf.Verbose)
+		if profile == nil && len(profiles) == 0 {
+			return nil
+		}
+
+		// Print the active profile.
+		if profile != nil {
+			printStatus(cf.Debug, active, env, true)
+		}
+
+		// Print all other profiles.
+		for _, p := range others {
+			printStatus(cf.Debug, p, env, false)
+		}
+
+		// Print relevant active env vars, if they are set.
+		if cf.Verbose {
+			if len(env) > 0 {
+				fmt.Println("Active Environment:")
+			}
+			for k, v := range env {
+				fmt.Printf("\t%s=%s\n", k, v)
+			}
+		}
 	}
 
 	return nil
@@ -3964,7 +3983,7 @@ func onStatus(cf *CLIConf) error {
 		return trace.Wrap(err)
 	}
 
-	if err := outputProfiles(cf, profile, profiles); err != nil {
+	if err := printProfiles(cf, profile, profiles); err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -4146,32 +4165,6 @@ func getTshEnv() map[string]string {
 		}
 	}
 	return env
-}
-
-func printProfiles(debug bool, profile *profileInfo, profiles []*profileInfo, env map[string]string, verbose bool) {
-	if profile == nil && len(profiles) == 0 {
-		return
-	}
-
-	// Print the active profile.
-	if profile != nil {
-		printStatus(debug, profile, env, true)
-	}
-
-	// Print all other profiles.
-	for _, p := range profiles {
-		printStatus(debug, p, env, false)
-	}
-
-	// Print relevant active env vars, if they are set.
-	if verbose {
-		if len(env) > 0 {
-			fmt.Println("Active Environment:")
-		}
-		for k, v := range env {
-			fmt.Printf("\t%s=%s\n", k, v)
-		}
-	}
 }
 
 // host is a utility function that extracts
