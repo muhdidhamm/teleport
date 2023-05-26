@@ -883,9 +883,6 @@ func (r *RoleV6) CheckAndSetDefaults() error {
 	if r.Spec.Options.DesktopDirectorySharing == nil {
 		r.Spec.Options.DesktopDirectorySharing = NewBoolOption(true)
 	}
-	if r.Spec.Options.CreateHostUser == nil {
-		r.Spec.Options.CreateHostUser = NewBoolOption(false)
-	}
 	if r.Spec.Options.CreateDesktopUser == nil {
 		r.Spec.Options.CreateDesktopUser = NewBoolOption(false)
 	}
