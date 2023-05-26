@@ -23,6 +23,7 @@ import (
 	"crypto/rsa"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -371,7 +372,10 @@ func TestListDatabase(t *testing.T) {
 		"ls",
 		"--insecure",
 		"--debug",
-	}, setCopyStdout(captureStdout))
+	}, func(cf *CLIConf) error {
+		cf.overrideStdout = io.MultiWriter(os.Stdout, captureStdout)
+		return nil
+	})
 	require.NoError(t, err)
 	require.Contains(t, captureStdout.String(), "root-postgres")
 
@@ -383,7 +387,10 @@ func TestListDatabase(t *testing.T) {
 		"leaf1",
 		"--insecure",
 		"--debug",
-	}, setCopyStdout(captureStdout))
+	}, func(cf *CLIConf) error {
+		cf.overrideStdout = io.MultiWriter(os.Stdout, captureStdout)
+		return nil
+	})
 	require.NoError(t, err)
 	require.Contains(t, captureStdout.String(), "leaf-postgres")
 }

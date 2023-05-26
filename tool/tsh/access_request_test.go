@@ -20,6 +20,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -191,7 +193,10 @@ func TestAccessRequestSearch(t *testing.T) {
 				},
 					tc.args.extraArgs...,
 				),
-				setCopyStdout(captureStdout),
+				func(cf *CLIConf) error {
+					cf.overrideStdout = io.MultiWriter(os.Stdout, captureStdout)
+					return nil
+				},
 			)
 			require.NoError(t, err)
 			require.Contains(t, captureStdout.String(), tc.wantTable())
