@@ -1710,9 +1710,9 @@ message AuthPreferenceSpecV2 {
     (gogoproto.customtype) = "BoolOption"
   ];
 
-  // MaxSessionTTL defines how long a session can last for.
-  int64 MaxSessionTTL = 16 [
-    (gogoproto.jsontag) = "max_session_ttl,omitempty",
+  // DefaultSessionTTL defines how long a session can last for.
+  int64 DefaultSessionTTL = 16 [
+    (gogoproto.jsontag) = "default_session_ttl,omitempty",
     (gogoproto.casttype) = "Duration"
   ];
 }

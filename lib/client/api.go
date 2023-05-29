@@ -231,9 +231,6 @@ type Config struct {
 
 	// KeyTTL is a time to live for the temporary SSH keypair to remain valid:
 	KeyTTL time.Duration
-	// CliTTL is used to ensure the TTL passed by flag is used over
-	// the cluster default
-	CliTTL bool
 
 	// InsecureSkipVerify is an option to skip HTTPS cert check
 	InsecureSkipVerify bool
@@ -1012,9 +1009,7 @@ func NewClient(c *Config) (tc *TeleportClient, err error) {
 		}
 		log.Infof("no host login given. defaulting to %s", c.HostLogin)
 	}
-	if c.KeyTTL == 0 {
-		c.KeyTTL = apidefaults.CertDuration
-	}
+
 	c.Namespace = types.ProcessNamespace(c.Namespace)
 
 	if c.Tracer == nil {
@@ -3302,9 +3297,12 @@ func (tc *TeleportClient) Login(ctx context.Context) (*Key, error) {
 	// Perform the ALPN test once at login.
 	tc.TLSRoutingConnUpgradeRequired = client.IsALPNConnUpgradeRequired(tc.WebProxyAddr, tc.InsecureSkipVerify)
 
-	authMaxSessTTL := time.Duration(pr.Auth.MaxSessionTTL)
-	if !tc.CliTTL {
-		tc.KeyTTL = authMaxSessTTL
+	if tc.KeyTTL == 0 {
+		tc.KeyTTL = time.Duration(pr.Auth.DefaultSessionTTL)
+	}
+	// todo(lxea): DELETE IN v15(?) where the auth is guaranteed to send us a valid MaxSessionTTL or the auth is guaranteed to interpret 0 duration as the auth's default?
+	if tc.KeyTTL == 0 {
+		tc.KeyTTL = apidefaults.CertDuration
 	}
 
 	// Get the SSHLoginFunc that matches client and cluster settings.

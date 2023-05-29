@@ -2162,7 +2162,7 @@ func TestGenerateCerts(t *testing.T) {
 		maxSessionTTL := 300 * time.Hour
 		authPref, err := srv.Auth().GetAuthPreference(ctx)
 		require.NoError(t, err)
-		authPref.SetMaxSessionTTL(types.Duration(maxSessionTTL))
+		authPref.SetDefaultSessionTTL(types.Duration(maxSessionTTL))
 		srv.Auth().SetAuthPreference(ctx, authPref)
 		superImpersonatorRole, err := types.NewRole("superimpersonator", types.RoleSpecV6{
 			Options: types.RoleOptions{
