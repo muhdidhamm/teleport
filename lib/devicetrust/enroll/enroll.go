@@ -24,13 +24,43 @@ import (
 	devicepb "github.com/gravitational/teleport/api/gen/proto/go/teleport/devicetrust/v1"
 	"github.com/gravitational/teleport/api/types"
 	"github.com/gravitational/teleport/lib/devicetrust"
+	"github.com/gravitational/teleport/lib/devicetrust/native"
 )
 
+// Ceremony is the device enrollment ceremony.
+// It takes the client role of
+// [devicepb.DeviceTrustServiceClient.EnrollDevice].
+type Ceremony struct {
+	GetDeviceOSType         func() devicepb.OSType
+	EnrollDeviceInit        func() (*devicepb.EnrollDeviceInit, error)
+	SignChallenge           func(chal []byte) (sig []byte, err error)
+	SolveTPMEnrollChallenge func(challenge *devicepb.TPMEnrollChallenge) (*devicepb.TPMEnrollChallengeResponse, error)
+}
+
+// NewCeremony creates a new ceremony that delegates per-device behavior
+// to lib/devicetrust/native.
+// If you want to customize a [Ceremony], for example for testing purposes, you
+// may create a configure an instance directly, without calling this method.
+func NewCeremony() *Ceremony {
+	return &Ceremony{
+		GetDeviceOSType:         getDeviceOSType,
+		EnrollDeviceInit:        native.EnrollDeviceInit,
+		SignChallenge:           native.SignChallenge,
+		SolveTPMEnrollChallenge: native.SolveTPMEnrollChallenge,
+	}
+}
+
 // RunCeremony performs the client-side device enrollment ceremony.
+// Equivalent to `NewCeremony().Run()`.
 func RunCeremony(ctx context.Context, devicesClient devicepb.DeviceTrustServiceClient, enrollToken string) (*devicepb.Device, error) {
+	return NewCeremony().Run(ctx, devicesClient, enrollToken)
+}
+
+// Run performs the client-side device enrollment ceremony.
+func (c *Ceremony) Run(ctx context.Context, devicesClient devicepb.DeviceTrustServiceClient, enrollToken string) (*devicepb.Device, error) {
 	// Start by checking the OSType, this lets us exit early with a nicer message
 	// for non-supported OSes.
-	osType := getOSType()
+	osType := c.GetDeviceOSType()
 	if !slices.Contains([]devicepb.OSType{
 		devicepb.OSType_OS_TYPE_MACOS,
 		devicepb.OSType_OS_TYPE_WINDOWS,
@@ -41,7 +71,7 @@ func RunCeremony(ctx context.Context, devicesClient devicepb.DeviceTrustServiceC
 		)
 	}
 
-	init, err := enrollInit()
+	init, err := c.EnrollDeviceInit()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -68,10 +98,10 @@ func RunCeremony(ctx context.Context, devicesClient devicepb.DeviceTrustServiceC
 	// 2. Challenge.
 	switch osType {
 	case devicepb.OSType_OS_TYPE_MACOS:
-		err = enrollDeviceMacOS(stream, resp)
+		err = c.enrollDeviceMacOS(stream, resp)
 		// err handled below
 	case devicepb.OSType_OS_TYPE_WINDOWS:
-		err = enrollDeviceTPM(stream, resp)
+		err = c.enrollDeviceTPM(stream, resp)
 		// err handled below
 	default:
 		// This should be caught by the OSType guard at start of function.
@@ -94,12 +124,12 @@ func RunCeremony(ctx context.Context, devicesClient devicepb.DeviceTrustServiceC
 	return successResp.Device, nil
 }
 
-func enrollDeviceMacOS(stream devicepb.DeviceTrustService_EnrollDeviceClient, resp *devicepb.EnrollDeviceResponse) error {
+func (c *Ceremony) enrollDeviceMacOS(stream devicepb.DeviceTrustService_EnrollDeviceClient, resp *devicepb.EnrollDeviceResponse) error {
 	chalResp := resp.GetMacosChallenge()
 	if chalResp == nil {
 		return trace.BadParameter("unexpected challenge payload from server: %T", resp.Payload)
 	}
-	sig, err := signChallenge(chalResp.Challenge)
+	sig, err := c.SignChallenge(chalResp.Challenge)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -113,7 +143,7 @@ func enrollDeviceMacOS(stream devicepb.DeviceTrustService_EnrollDeviceClient, re
 	return trace.Wrap(err)
 }
 
-func enrollDeviceTPM(stream devicepb.DeviceTrustService_EnrollDeviceClient, resp *devicepb.EnrollDeviceResponse) error {
+func (c *Ceremony) enrollDeviceTPM(stream devicepb.DeviceTrustService_EnrollDeviceClient, resp *devicepb.EnrollDeviceResponse) error {
 	challenge := resp.GetTpmChallenge()
 	switch {
 	case challenge == nil:
@@ -124,7 +154,7 @@ func enrollDeviceTPM(stream devicepb.DeviceTrustService_EnrollDeviceClient, resp
 		return trace.BadParameter("missing attestation_nonce in challenge from server")
 	}
 
-	challengeResponse, err := solveTPMEnrollChallenge(challenge)
+	challengeResponse, err := c.SolveTPMEnrollChallenge(challenge)
 	if err != nil {
 		return trace.Wrap(err)
 	}
